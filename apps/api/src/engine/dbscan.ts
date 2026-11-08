@@ -1,4 +1,4 @@
-import { haversineM, LatLon } from './geo';
+import { distM as haversineM, LatLon } from './geo';
 
 export const NOISE = -1;
 

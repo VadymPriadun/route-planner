@@ -1,4 +1,4 @@
-import { haversineM, LatLon } from './geo';
+import { distM as haversineM, LatLon } from './geo';
 
 export function pathLengthM(points: LatLon[], order: number[]): number {
     let sum = 0;

@@ -1,4 +1,4 @@
-import { centroid, haversineM, LatLon } from './geo';
+import { centroid, distM as haversineM, LatLon } from './geo';
 
 // Генератор псевдовипадкових чисел із seed: однаковий seed дає однаковий результат
 function mulberry32(seed: number): () => number {

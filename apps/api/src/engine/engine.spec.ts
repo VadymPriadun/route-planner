@@ -97,6 +97,6 @@ describe('selection', () => {
         expect(low.length).toBeLessThan(high.length);
     });
     it('computes points per day sensibly', () => {
-        expect(pointsPerDay({ days: 1, hoursPerDay: 6, interests: [], activityLevel: 'MEDIUM' })).toBe(5);
+        expect(pointsPerDay({ days: 1, hoursPerDay: 6, interests: [], activityLevel: 'MEDIUM' })).toBe(6);
     });
 });

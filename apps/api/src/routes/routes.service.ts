@@ -36,6 +36,8 @@ export class RoutesService {
                 activityLevel: dto.activityLevel,
                 grouping: dto.grouping,
                 ordering: dto.ordering,
+                visitMode: dto.visitMode,
+                queues: dto.queues
             });
 
             await this.prisma.$transaction(async (tx) => {

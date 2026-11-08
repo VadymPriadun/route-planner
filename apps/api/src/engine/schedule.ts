@@ -17,6 +17,10 @@ export interface Stop {
     kind: StopKind;
     arrival: string;
     visitMinutes: number;
+    outsideMin?: number;
+    insideMin?: number;
+    enterable?: boolean;
+    inside?: boolean;
 }
 
 export interface DayPlan {
@@ -36,7 +40,7 @@ interface BreakRule {
 
 export interface BuildDayInput {
     dayNumber: number;
-    sights: Candidate[]; // уже впорядковані
+    sights: Candidate[];
     hoursPerDay: number;
     wantCoffee: boolean;
     foodPool: PoiRow[];
@@ -52,12 +56,7 @@ export function fmt(min: number): string {
 const walkM = (a: LatLon, b: LatLon): number => haversineM(a, b) * WALK_FACTOR;
 const walkMin = (a: LatLon, b: LatLon): number => Math.ceil(walkM(a, b) / WALK_M_PER_MIN);
 
-function nearestFood(
-    from: LatLon,
-    pool: PoiRow[],
-    used: Set<string>,
-    category: PoiCategory,
-): PoiRow | null {
+function nearestFood(from: LatLon, pool: PoiRow[], used: Set<string>, category: PoiCategory): PoiRow | null {
     let best: PoiRow | null = null;
     let bestD = Infinity;
     for (const p of pool) {
@@ -88,8 +87,7 @@ export function buildDay(input: BuildDayInput): DayPlan {
     let prev: LatLon | null = null;
     let dist = 0;
 
-    // Додає точку, якщо вона вміщується в день
-    const place = (poi: PoiRow, kind: StopKind, minutes: number): boolean => {
+    const place = (poi: PoiRow, kind: StopKind, minutes: number, extra: Partial<Stop> = {}): boolean => {
         const arrive = t + (prev ? walkMin(prev, poi) : 0);
         if (arrive + minutes > endMin) return false;
         if (prev) dist += walkM(prev, poi);
@@ -102,13 +100,13 @@ export function buildDay(input: BuildDayInput): DayPlan {
             kind,
             arrival: fmt(arrive),
             visitMinutes: minutes,
+            ...extra,
         });
         t = arrive + minutes;
         prev = poi;
         return true;
     };
 
-    // Обід і кава вставляються, щойно настав їхній час
     const takeBreaks = (): void => {
         for (const r of rules) {
             if (done.has(r.kind) || t < r.fromMin) continue;
@@ -124,7 +122,13 @@ export function buildDay(input: BuildDayInput): DayPlan {
 
     for (const s of sights) {
         takeBreaks();
-        if (!place(s, 'SIGHT', s.defaultVisitMinutes)) dropped.push(s.name);
+        const ok = place(s, 'SIGHT', s.visitMinutes ?? s.defaultVisitMinutes, {
+            outsideMin: s.outsideMin,
+            insideMin: s.insideMin,
+            enterable: s.enterable,
+            inside: s.inside,
+        });
+        if (!ok) dropped.push(s.name);
     }
     takeBreaks();
 

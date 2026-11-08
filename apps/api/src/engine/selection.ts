@@ -1,5 +1,7 @@
 import type { PoiCategory } from '@prisma/client';
 import { haversineM } from './geo';
+import { classifyDwell, visitMinutes, VisitMode } from './dwell';
+import { dedupeByName } from './dedupe';
 
 export interface PoiRow {
     id: string;
@@ -14,6 +16,11 @@ export interface PoiRow {
 
 export interface Candidate extends PoiRow {
     score: number;
+    visitMinutes?: number;
+    outsideMin?: number;
+    insideMin?: number;
+    enterable?: boolean;
+    inside?: boolean;
 }
 
 export interface SelectionRequest {
@@ -21,9 +28,10 @@ export interface SelectionRequest {
     hoursPerDay: number;
     interests: string[];
     activityLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+    visitMode?: VisitMode;
+    queues?: boolean;
 }
 
-// Категорії оглядових точок для кожного інтересу.
 export const INTEREST_CATEGORIES: Record<string, PoiCategory[]> = {
     art: ['MUSEUM', 'ART', 'CHURCH', 'HISTORIC'],
     history: ['HISTORIC', 'CHURCH', 'MUSEUM', 'ATTRACTION'],
@@ -34,7 +42,6 @@ export const INTEREST_CATEGORIES: Record<string, PoiCategory[]> = {
     nightlife: [],
 };
 
-// Категорії, які вважаються «основними» для інтересу (отримують бонус)
 const PRIMARY: Record<string, PoiCategory[]> = {
     art: ['MUSEUM', 'ART'],
     history: ['HISTORIC'],
@@ -43,22 +50,23 @@ const PRIMARY: Record<string, PoiCategory[]> = {
 };
 
 const CATEGORY_WEIGHT: Partial<Record<PoiCategory, number>> = {
-    MUSEUM: 5,
-    ATTRACTION: 5,
-    ART: 4,
-    HISTORIC: 3,
-    CHURCH: 3,
-    VIEWPOINT: 3,
-    PARK: 2,
+    MUSEUM: 5, ATTRACTION: 5, ART: 4, HISTORIC: 3, CHURCH: 3, VIEWPOINT: 3, PARK: 2,
 };
 
 const ACTIVITY_FACTOR = { LOW: 0.75, MEDIUM: 1, HIGH: 1.25 } as const;
 
+// Орієнтовний слот на одну точку (середній огляд + дорога), хв
+const SLOT_MIN: Record<VisitMode, number> = { OUTSIDE: 24, MAIN: 50, ALL: 60 };
+
 export function pointsPerDay(req: SelectionRequest): number {
-    const sightseeingHours = req.hoursPerDay - 1; // 1 година відведена на обід
-    const slotMinutes = 45 + 20; // середній візит + дорога
-    const raw = ((sightseeingHours * 60) / slotMinutes) * ACTIVITY_FACTOR[req.activityLevel];
-    return Math.max(2, Math.round(raw));
+    const sightseeingHours = req.hoursPerDay - 1; // 1 година на обід
+    const slot = SLOT_MIN[req.visitMode ?? 'MAIN'];
+    const raw = ((sightseeingHours * 60) / slot) * ACTIVITY_FACTOR[req.activityLevel];
+    return Math.min(14, Math.max(2, Math.round(raw)));
+}
+
+export function candidateLimit(req: SelectionRequest): number {
+    return Math.ceil(req.days * pointsPerDay(req) * 1.6);
 }
 
 function allowedCategories(interests: string[]): Set<PoiCategory> {
@@ -71,7 +79,6 @@ function allowedCategories(interests: string[]): Set<PoiCategory> {
     return set;
 }
 
-// Правила відсіювання, виведені з аналізу даних OSM
 export function isMeaningful(p: PoiRow): boolean {
     const hasWikidata = Boolean(p.metadata?.wikidata);
     if (p.category === 'HISTORIC') {
@@ -82,10 +89,10 @@ export function isMeaningful(p: PoiRow): boolean {
     if (p.category === 'PARK') return hasWikidata;
     return true;
 }
+
 // П'яцца делла Синьорія: умовний центр міста
 export const CITY_CENTER = { lat: 43.7696, lon: 11.2558 };
 
-// Апріорне знання про місто: добре відомі пам'ятки Флоренції (допущення роботи)
 const LANDMARKS = [
     'uffizi', 'accademia', 'santa maria del fiore', 'bargello', 'palazzo vecchio',
     'palazzo pitti', 'santa croce', 'cappelle medicee', 'ponte vecchio', 'campanile di giotto',
@@ -97,6 +104,7 @@ export function isLandmark(name: string): boolean {
     const n = name.toLowerCase();
     return LANDMARKS.some((l) => n.includes(l));
 }
+
 export function popularityScore(
     p: PoiRow,
     interests: string[],
@@ -112,12 +120,30 @@ export function popularityScore(
     return Number(score.toFixed(2));
 }
 
-export function selectCandidates(pois: PoiRow[], req: SelectionRequest): Candidate[] {
+// Повний рейтинг: фільтр, оцінка, дедуплікація (150 м), час перебування за режимом
+export function rankCandidates(pois: PoiRow[], req: SelectionRequest): Candidate[] {
     const allowed = allowedCategories(req.interests);
-    const limit = Math.ceil(req.days * pointsPerDay(req) * 1.6);
-    return pois
+    const mode = req.visitMode ?? 'MAIN';
+    const queues = req.queues ?? false;
+    const scored = pois
         .filter((p) => allowed.has(p.category) && isMeaningful(p))
         .map((p) => ({ ...p, score: popularityScore(p, req.interests, req.activityLevel) }))
-        .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name))
-        .slice(0, limit);
+        .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+
+    return dedupeByName(scored, 150).map((p) => {
+        const d = classifyDwell(p);
+        const v = visitMinutes(d, mode, queues);
+        return {
+            ...p,
+            visitMinutes: v.minutes,
+            outsideMin: d.outsideMin,
+            insideMin: d.insideMin + (queues ? d.queueMin : 0),
+            enterable: d.enterable,
+            inside: v.inside,
+        };
+    });
+}
+
+export function selectCandidates(pois: PoiRow[], req: SelectionRequest): Candidate[] {
+    return rankCandidates(pois, req).slice(0, candidateLimit(req));
 }

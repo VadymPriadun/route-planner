@@ -1,6 +1,7 @@
 import {
     ArrayMaxSize,
     IsArray,
+    IsBoolean,
     IsEnum,
     IsIn,
     IsInt,
@@ -13,7 +14,15 @@ import {
 } from 'class-validator';
 import { ActivityLevel } from '@prisma/client';
 
-export const INTERESTS = ['art', 'history', 'architecture', 'nature', 'food', 'coffee', 'nightlife'] as const;
+export const INTERESTS = [
+    'art',
+    'history',
+    'architecture',
+    'nature',
+    'food',
+    'coffee',
+    'nightlife',
+] as const;
 
 export class CreateRouteDto {
     @IsString()
@@ -51,4 +60,12 @@ export class CreateRouteDto {
     @IsOptional()
     @IsIn(['nn', '2opt'])
     ordering?: 'nn' | '2opt';
+
+    @IsOptional()
+    @IsIn(['OUTSIDE', 'MAIN', 'ALL'])
+    visitMode?: 'OUTSIDE' | 'MAIN' | 'ALL';
+
+    @IsOptional()
+    @IsBoolean()
+    queues?: boolean;
 }

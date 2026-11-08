@@ -1,4 +1,4 @@
-import { centroid, haversineM, LatLon } from './geo';
+import { centroid, distM as haversineM, LatLon } from './geo';
 import { kmeans } from './kmeans';
 import { dbscan, NOISE } from './dbscan';
 
