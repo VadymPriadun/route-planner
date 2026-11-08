@@ -1,72 +1,100 @@
-'use client';
 import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
-import { api } from '@/lib/api';
-import { useRequireAuth } from '@/lib/auth';
-import { km, STATUS_LABELS } from '@/lib/labels';
-import type { RouteSummary } from '@/lib/types';
 
-export default function RoutesPage() {
-  const ready = useRequireAuth();
-  const [routes, setRoutes] = useState<RouteSummary[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    try {
-      setRoutes(await api<RouteSummary[]>('/routes'));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Невідома помилка');
-    }
-  }, []);
-
-  useEffect(() => {
-    if (ready) void load();
-  }, [ready, load]);
-
-  async function remove(id: string) {
-    if (!confirm('Видалити цей маршрут?')) return;
-    try {
-      await api<void>(`/routes/${id}`, { method: 'DELETE' });
-      await load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Невідома помилка');
-    }
-  }
-
-  if (!ready) return null;
+export default function HomePage() {
   return (
-    <main className="container">
-      <div className="card">
-        <h1>Мої маршрути</h1>
-        {error && <div className="error">{error}</div>}
-        {routes === null && !error && <p>Завантаження…</p>}
-        {routes?.length === 0 && (
-          <p>Маршрутів поки немає. <Link href="/planner">Створити перший</Link></p>
-        )}
-        {routes && routes.length > 0 && (
-          <table>
-            <thead>
-              <tr><th>Дата</th><th>Днів</th><th>Алгоритм</th><th>Відстань</th><th>Статус</th><th></th></tr>
-            </thead>
+      <main className="lp">
+        <section className="hero">
+          <div>
+            <span className="pill-tag"><i /> Флоренція · дані OpenStreetMap</span>
+            <h1>
+              Два дні, що <em>відчуваються</em> як тиждень.
+            </h1>
+            <p className="lead">
+              Опишіть подорож словами. ШІ зрозуміє побажання, а власний алгоритм розкладе
+              місця по днях, вибере найкоротший шлях і додасть обід та каву.
+            </p>
+            <div className="hero-cta">
+              <Link href="/planner"><button className="btn">Створити маршрут →</button></Link>
+              <Link href="#how"><button className="btn btn-secondary">Як це працює</button></Link>
+            </div>
+          </div>
+
+          <div>
+            <div className="float-card">
+              <div className="fc-head"><span>День 1 · 1.6 км пішки</span><span className="fc-tag">Економія часу</span></div>
+              <div className="fc-row"><b>09:00</b><span>Ponte Vecchio</span></div>
+              <div className="fc-row"><b>09:49</b><span>Galleria degli Uffizi</span></div>
+              <div className="fc-row"><b>11:22</b><span>Palazzo Vecchio</span></div>
+              <div className="fc-row"><b>12:57</b><span>Обід поруч із маршрутом</span></div>
+            </div>
+            <div className="float-card">
+              <div className="fc-head"><span>День 2 · Дуомо та Сан-Лоренцо</span></div>
+              <div className="fc-row"><b>09:00</b><span>Cattedrale di Santa Maria del Fiore</span></div>
+              <div className="fc-row"><b>09:47</b><span>Campanile di Giotto</span></div>
+            </div>
+          </div>
+        </section>
+
+        <div className="stats">
+          <div className="stat"><b>2 544</b><span>реальних місць Флоренції</span></div>
+          <div className="stat"><b>2-opt</b><span>оптимізація порядку обходу</span></div>
+          <div className="stat"><b>K-Means</b><span>і DBSCAN для групування днів</span></div>
+          <div className="stat"><b>37</b><span>автоматичних тестів</span></div>
+        </div>
+
+        <section className="section" id="how">
+          <h2>ШІ розуміє, алгоритм будує. Без вигаданих місць.</h2>
+          <div className="steps">
+            <div className="step">
+              <div className="n">01</div>
+              <h3>Розкажіть, що хочете</h3>
+              <p>«2 дні, люблю мистецтво, не хочу багато ходити». Параметри витягуються з тексту й перевіряються.</p>
+            </div>
+            <div className="step">
+              <div className="n">02</div>
+              <h3>Місця діляться по днях</h3>
+              <p>Кластеризація групує сусідні об’єкти, щоб не бігати містом туди й назад.</p>
+            </div>
+            <div className="step">
+              <div className="n">03</div>
+              <h3>Шлях і розклад</h3>
+              <p>Порядок обходу оптимізується, а в розклад додаються обід, кава й посилання на Google Maps.</p>
+            </div>
+          </div>
+        </section>
+
+        <section className="section">
+          <h2>Що всередині</h2>
+          <div className="feature-grid">
+            <div className="feature"><div className="ico">🧭</div><div><h3>Власний Route Engine</h3><p>Відбір місць, оцінка важливості, кластеризація та оптимізація шляху без сторонніх сервісів маршрутизації.</p></div></div>
+            <div className="feature"><div className="ico">🗺️</div><div><h3>Реальна географія</h3><p>PostgreSQL + PostGIS: пошук закладів у радіусі 500 м від будь-якої точки маршруту.</p></div></div>
+            <div className="feature"><div className="ico">🤖</div><div><h3>ШІ з запобіжниками</h3><p>Модель лише розбирає запит. Усі значення перевіряються, а без ключа працює запасний розбір.</p></div></div>
+            <div className="feature"><div className="ico">🔐</div><div><h3>Безпека</h3><p>JWT, хеші паролів, обмеження частоти запитів, захисні заголовки та інтеграційні тести.</p></div></div>
+          </div>
+        </section>
+
+        <section className="section">
+          <h2>Результати експерименту</h2>
+          <table className="compare">
+            <thead><tr><th>Алгоритм обходу</th><th>Шлях за день</th><th>Над оптимумом</th></tr></thead>
             <tbody>
-              {routes.map((r) => (
-                <tr key={r.id}>
-                  <td><Link href={`/routes/${r.id}`}>{new Date(r.createdAt).toLocaleString('uk-UA')}</Link></td>
-                  <td>{r.days}</td>
-                  <td>{r.algorithm ?? '—'}</td>
-                  <td>{km(r.totalDistanceM)}</td>
-                  <td>
-                    <span className={`badge ${r.status === 'COMPLETED' ? 'badge-ok' : r.status === 'FAILED' ? 'badge-fail' : ''}`}>
-                      {STATUS_LABELS[r.status]}
-                    </span>
-                  </td>
-                  <td><button className="btn btn-danger" onClick={() => remove(r.id)}>Видалити</button></td>
-                </tr>
-              ))}
+            <tr><td>Випадковий порядок</td><td>3320 м</td><td>+30.9%</td></tr>
+            <tr><td>Nearest Neighbor</td><td>2640 м</td><td>+4.1%</td></tr>
+            <tr><td>2-opt</td><td>2536 м</td><td>0.0%</td></tr>
             </tbody>
           </table>
-        )}
-      </div>
-    </main>
+        </section>
+
+        <section className="cta-band">
+          <h2>Готові спланувати Флоренцію?</h2>
+          <p>Один запит, і за секунди маршрут із часом, обідом і картою.</p>
+          <Link href="/planner"><button className="btn">Створити маршрут →</button></Link>
+        </section>
+
+        <footer className="footer">
+          <span>AI Travel &amp; City Explorer · навчальний проєкт</span>
+          <span>Дані © OpenStreetMap contributors</span>
+        </footer>
+      </main>
   );
 }
