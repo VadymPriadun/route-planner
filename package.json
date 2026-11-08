@@ -1,0 +1,22 @@
+{
+  "name": "route-planner",
+  "private": true,
+  "packageManager": "pnpm@10.0.0",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["@prisma/client", "@prisma/engines", "prisma", "esbuild", "@swc/core"],
+    "overrides": {
+      "postcss": ">=8.5.23",
+      "multer": ">=2.5.0",
+      "js-yaml": ">=5.4.1",
+      "deepmerge-ts": ">=8.0.0"
+    }
+  }
+}

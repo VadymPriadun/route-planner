@@ -1,0 +1,127 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis, fuzzystrmatch, postgis_tiger_geocoder, postgis_topology]
+}
+
+enum PoiCategory {
+  MUSEUM
+  ART
+  ATTRACTION
+  HISTORIC
+  CHURCH
+  PARK
+  VIEWPOINT
+  CAFE
+  RESTAURANT
+  BAR
+  PHARMACY
+}
+
+enum ActivityLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum RouteStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model User {
+  id           String       @id @default(uuid())
+  email        String       @unique
+  passwordHash String
+  name         String?
+  createdAt    DateTime     @default(now())
+  preferences  Preferences?
+  routes       Route[]
+}
+
+model Preferences {
+  id            String        @id @default(uuid())
+  userId        String        @unique
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  interests     String[]
+  activityLevel ActivityLevel @default(MEDIUM)
+  hoursPerDay   Int           @default(6)
+}
+
+model Route {
+  id             String        @id @default(uuid())
+  userId         String
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  city           String
+  title          String?
+  requestText    String?
+  days           Int
+  hoursPerDay    Int
+  activityLevel  ActivityLevel
+  interests      String[]
+  status         RouteStatus   @default(PENDING)
+  algorithm      String?
+  totalDistanceM Int?
+  createdAt      DateTime      @default(now())
+  routeDays      RouteDay[]
+
+  @@index([userId])
+}
+
+model RouteDay {
+  id          String       @id @default(uuid())
+  routeId     String
+  route       Route        @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  dayNumber   Int
+  distanceM   Int?
+  durationMin Int?
+  points      RoutePoint[]
+
+  @@unique([routeId, dayNumber])
+}
+
+model RoutePoint {
+  id           String   @id @default(uuid())
+  routeDayId   String
+  routeDay     RouteDay @relation(fields: [routeDayId], references: [id], onDelete: Cascade)
+  poiId        String
+  poi          Poi      @relation(fields: [poiId], references: [id])
+  order        Int
+  arrivalTime  String?
+  visitMinutes Int
+  note         String?
+
+  @@unique([routeDayId, order])
+}
+
+model Poi {
+  id                  String                         @id @default(uuid())
+  osmType             String
+  osmId               String
+  name                String
+  category            PoiCategory
+  subcategory         String?
+  lat                 Float
+  lon                 Float
+  geom                Unsupported("geography(Point,4326)")?
+  rating              Float?
+  openingHours        String?
+  website             String?
+  address             String?
+  metadata            Json?
+  defaultVisitMinutes Int                            @default(30)
+  createdAt           DateTime                       @default(now())
+  updatedAt           DateTime                       @updatedAt
+  routePoints         RoutePoint[]
+
+  @@unique([osmType, osmId])
+  @@index([category])
+  @@index([geom], type: Gist)
+}
