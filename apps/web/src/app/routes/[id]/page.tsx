@@ -98,8 +98,9 @@ export default function RoutePage() {
           const pts = (day?.points ?? []).map((p) => ({
             lat: p.poi.lat,
             lon: p.poi.lon,
+            name: p.poi.name,
           }));
-
+          
           const g = googleMapsUrl(pts);
           const a = appleMapsUrl(pts);
 
