@@ -74,6 +74,7 @@ export default function PlannerPage() {
           onChange={(e) => setText(e.target.value)}
           placeholder="Наприклад: 2 дні у Флоренції, люблю мистецтво, не хочу багато ходити і хочу каву після обіду"
         />
+        <div className="muted">{text.length}/1000</div>
         <button className="btn btn-secondary" disabled={busy !== null || text.trim().length < 3} onClick={parse}>
           {busy === 'parse' ? 'Аналізую…' : 'Розібрати запит'}
         </button>
@@ -86,6 +87,10 @@ export default function PlannerPage() {
       </div>
 
       <div className="card">
+        <div className="info" style={{ marginTop: 0, marginBottom: 12 }}>
+          Обмеження: підтримується лише <strong>Флоренція</strong> (інші міста буде замінено на Флоренцію);
+          запит 3-1000 символів; 1-7 днів; 2-12 годин на день.
+        </div>
         <h2>Параметри</h2>
         <div className="row">
           <div>

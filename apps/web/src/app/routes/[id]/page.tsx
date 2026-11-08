@@ -6,6 +6,7 @@ import { api } from '@/lib/api';
 import { useRequireAuth } from '@/lib/auth';
 import { CATEGORY_LABELS, INTEREST_LABELS, KIND_LABELS, km } from '@/lib/labels';
 import type { NearbyPoi, RouteDto } from '@/lib/types';
+import { appleMapsUrl, googleMapsUrl } from '@/lib/maps';
 
 const RouteMap = dynamic(() => import('@/components/RouteMap'), {
   ssr: false,
@@ -78,7 +79,7 @@ export default function RoutePage() {
           {route.days} дн. · {route.hoursPerDay} год/день · {km(route.totalDistanceM)} · {route.algorithm}
         </div>
         <div className="muted">{route.interests.map((i) => INTEREST_LABELS[i] ?? i).join(', ')}</div>
-
+  
         <div className="tabs">
           {route.routeDays.map((d, i) => (
             <button key={d.id} className={`tab ${i === dayIdx ? 'on' : ''}`}
@@ -88,8 +89,32 @@ export default function RoutePage() {
           ))}
         </div>
         <div className="muted">
-          {km(day?.distanceM ?? null)} пішки · {Math.floor((day?.durationMin ?? 0) / 60)} год {(day?.durationMin ?? 0) % 60} хв
+          {km(day?.distanceM ?? null)} пішки ·{' '}
+          {Math.floor((day?.durationMin ?? 0) / 60)} год{' '}
+          {(day?.durationMin ?? 0) % 60} хв
         </div>
+
+        {(() => {
+          const pts = (day?.points ?? []).map((p) => ({
+            lat: p.poi.lat,
+            lon: p.poi.lon,
+          }));
+
+          const g = googleMapsUrl(pts);
+          const a = appleMapsUrl(pts);
+
+          return g && a ? (
+              <div style={{ display: 'flex', gap: 8, margin: '8px 0' }}>
+                <a href={g} target="_blank" rel="noopener noreferrer">
+                  Відкрити в Google Maps
+                </a>
+                <span className="muted">·</span>
+                <a href={a} target="_blank" rel="noopener noreferrer">
+                  Apple Maps (початок → кінець)
+                </a>
+              </div>
+          ) : null;
+        })()}
 
         {day?.points.map((p, i) => (
           <div key={p.id} className={`stop ${p.poi.id === selectedId ? 'sel' : ''}`} onClick={() => select(p.poi.id)}>
