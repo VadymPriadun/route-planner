@@ -1,11 +1,19 @@
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 const TOKEN_KEY = 'token';
-export const getToken = (): string | null =>
-  typeof window === 'undefined' ? null : localStorage.getItem(TOKEN_KEY);
-export const setToken = (t: string): void => localStorage.setItem(TOKEN_KEY, t);
-export const clearToken = (): void => localStorage.removeItem(TOKEN_KEY);
-
+export const getToken = (): string | null => {
+  try {
+    return typeof window === 'undefined' ? null : localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+};
+export const setToken = (t: string): void => {
+  try { localStorage.setItem(TOKEN_KEY, t); } catch { /* сховище недоступне */ }
+};
+export const clearToken = (): void => {
+  try { localStorage.removeItem(TOKEN_KEY); } catch { /* сховище недоступне */ }
+};
 export class ApiError extends Error {
   constructor(
     public status: number,

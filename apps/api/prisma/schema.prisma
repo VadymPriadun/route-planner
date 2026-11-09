@@ -71,6 +71,9 @@ model Route {
   totalDistanceM Int?
   createdAt      DateTime      @default(now())
   routeDays      RouteDay[]
+  visitMode      String   @default("MAIN")
+  queues         Boolean  @default(false)
+  savedBy2optM   Int?
 
   @@index([userId])
 }
@@ -97,6 +100,10 @@ model RoutePoint {
   arrivalTime  String?
   visitMinutes Int
   note         String?
+  outsideMin   Int?
+  insideMin    Int?
+  enterable    Boolean @default(false)
+  inside       Boolean @default(false)
 
   @@unique([routeDayId, order])
 }

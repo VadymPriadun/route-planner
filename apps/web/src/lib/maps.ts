@@ -27,3 +27,19 @@ export function appleMapsUrl(points: Pt[]): string | null {
     });
     return `https://maps.apple.com/?${params.toString()}`;
 }
+
+export async function walkingGeometry(points: { lat: number; lon: number }[]): Promise<[number, number][] | null> {
+    if (points.length < 2) return null;
+    const coords = points.map((p) => `${p.lon},${p.lat}`).join(';');
+    try {
+        const res = await fetch(
+            `https://routing.openstreetmap.de/routed-foot/route/v1/foot/${coords}?overview=full&geometries=geojson`,
+            { signal: AbortSignal.timeout(8000) },
+        );
+        if (!res.ok) return null;
+        const data = await res.json();
+        return data.routes?.[0]?.geometry?.coordinates ?? null;
+    } catch {
+        return null;
+    }
+}

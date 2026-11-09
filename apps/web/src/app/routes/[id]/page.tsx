@@ -1,4 +1,6 @@
 'use client';
+import { recompute } from '@/lib/schedule';
+import { walkingGeometry } from '@/lib/maps';
 import dynamic from 'next/dynamic';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -21,15 +23,31 @@ export default function RoutePage() {
   const [dayIdx, setDayIdx] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [nearby, setNearby] = useState<NearbyPoi[]>([]);
+  const [overrides, setOverrides] = useState<Record<string, boolean>>({});
+  const [line, setLine] = useState<[number, number][] | null>(null);
 
   useEffect(() => {
     if (!ready) return;
     api<RouteDto>(`/routes/${id}`)
-      .then(setRoute)
-      .catch((err) => setError(err instanceof Error ? err.message : 'Невідома помилка'));
+        .then(setRoute)
+        .catch((err) => setError(err instanceof Error ? err.message : 'Невідома помилка'));
   }, [ready, id]);
-
+  
   const day = route?.routeDays[dayIdx];
+
+  const computed = useMemo(
+      () => (day ? recompute(day, overrides) : null),
+      [day, overrides],
+  );
+
+
+  useEffect(() => {
+    setLine(null);
+    if (!day) return;
+    let cancelled = false;
+    walkingGeometry(day.points.map((p) => p.poi)).then((g) => { if (!cancelled) setLine(g); });
+    return () => { cancelled = true; };
+  }, [day]);
 
   const stops = useMemo(
     () =>
@@ -83,7 +101,7 @@ export default function RoutePage() {
         <div className="tabs">
           {route.routeDays.map((d, i) => (
             <button key={d.id} className={`tab ${i === dayIdx ? 'on' : ''}`}
-              onClick={() => { setDayIdx(i); setSelectedId(null); }}>
+                    onClick={() => { setDayIdx(i); setSelectedId(null); setOverrides({}); }}>
               День {d.dayNumber}
             </button>
           ))}
@@ -117,15 +135,24 @@ export default function RoutePage() {
           ) : null;
         })()}
 
-        {day?.points.map((p, i) => (
-          <div key={p.id} className={`stop ${p.poi.id === selectedId ? 'sel' : ''}`} onClick={() => select(p.poi.id)}>
-            <div className="time">{p.arrivalTime}</div>
-            <div>
-              <div><strong>{i + 1}. {p.poi.name}</strong></div>
-              <div className="muted">{KIND_LABELS[p.note ?? 'SIGHT']} · {p.visitMinutes} хв{p.poi.address ? ` · ${p.poi.address}` : ''}</div>
-            </div>
-          </div>
-        ))}
+        {day?.points.map((p, i) => {
+          const r = computed?.rows[i];
+          return (
+              <div key={p.id} className={`stop ${p.poi.id === selectedId ? 'sel' : ''}`} onClick={() => select(p.poi.id)}>
+                <div className="time">{r?.arrival ?? p.arrivalTime}</div>
+                <div>
+                  <div><strong>{i + 1}. {p.poi.name}</strong></div>
+                  <div className="muted">{KIND_LABELS[p.note ?? 'SIGHT']} · {r?.minutes ?? p.visitMinutes} хв{p.poi.address ? ` · ${p.poi.address}` : ''}</div>
+                  {p.note === 'SIGHT' && p.enterable && (
+                      <div className="seg" onClick={(e) => e.stopPropagation()}>
+                        <button className={!r?.inside ? 'on' : ''} onClick={() => setOverrides({ ...overrides, [p.id]: false })}>Ззовні</button>
+                        <button className={r?.inside ? 'on' : ''} onClick={() => setOverrides({ ...overrides, [p.id]: true })}>Всередині</button>
+                      </div>
+                  )}
+                </div>
+              </div>
+          );
+        })}
 
         {selectedId && (
           <>

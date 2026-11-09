@@ -55,6 +55,10 @@ export class RoutesService {
                                     arrivalTime: s.arrival,
                                     visitMinutes: s.visitMinutes,
                                     note: s.kind,
+                                    outsideMin: s.outsideMin,
+                                    insideMin: s.insideMin,
+                                    enterable: s.enterable ?? false,
+                                    inside: s.inside ?? false,
                                 })),
                             },
                         },
@@ -66,6 +70,9 @@ export class RoutesService {
                         status: 'COMPLETED',
                         algorithm: plan.algorithm,
                         totalDistanceM: plan.totalDistanceM,
+                        visitMode: dto.visitMode ?? 'MAIN',
+                        queues: dto.queues ?? false,
+                        savedBy2optM: plan.savedBy2optM,
                     },
                 });
             });

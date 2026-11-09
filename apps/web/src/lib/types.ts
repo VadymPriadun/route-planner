@@ -20,6 +20,7 @@ export interface RouteSummary {
   totalDistanceM: number | null;
   requestText: string | null;
   createdAt: string;
+  savedBy2optM: number | null;
 }
 
 export interface RoutePointDto {
@@ -37,6 +38,10 @@ export interface RoutePointDto {
     address: string | null;
     website: string | null;
   };
+  outsideMin: number | null;
+  insideMin: number | null;
+  enterable: boolean;
+  inside: boolean;
 }
 
 export interface RouteDayDto {

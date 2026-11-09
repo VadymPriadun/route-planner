@@ -22,10 +22,9 @@ export default function HomePage() {
           <div>
             <div className="float-card">
               <div className="fc-head"><span>День 1 · 1.6 км пішки</span><span className="fc-tag">Економія часу</span></div>
-              <div className="fc-row"><b>09:00</b><span>Ponte Vecchio</span></div>
-              <div className="fc-row"><b>09:49</b><span>Galleria degli Uffizi</span></div>
-              <div className="fc-row"><b>11:22</b><span>Palazzo Vecchio</span></div>
-              <div className="fc-row"><b>12:57</b><span>Обід поруч із маршрутом</span></div>
+              <div className="fc-row"><b>09:00</b><span>Ponte Vecchio · 15 хв</span></div>
+              <div className="fc-row"><b>09:20</b><span>Galleria degli Uffizi · 120 хв</span></div>
+              <div className="fc-row"><b>11:25</b><span>Palazzo Vecchio · 45 хв</span></div>
             </div>
             <div className="float-card">
               <div className="fc-head"><span>День 2 · Дуомо та Сан-Лоренцо</span></div>

@@ -26,6 +26,7 @@ interface Props {
   selectedId: string | null;
   onSelect: (id: string) => void;
   fitKey: string | null;
+  line?: [number, number][] | null;
 }
 
 const STYLE: maplibregl.StyleSpecification = {
@@ -62,6 +63,7 @@ export default function RouteMap({
                                    selectedId,
                                    onSelect,
                                    fitKey,
+                                   line,
                                  }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -180,10 +182,10 @@ export default function RouteMap({
         properties: {},
         geometry: {
           type: 'LineString',
-          coordinates: validStops.map((stop) => [
-            stop.lon,
-            stop.lat,
-          ]),
+          coordinates:
+              line && line.length > 1
+                  ? line
+                  : validStops.map((stop) => [stop.lon, stop.lat]),
         },
       });
     }
@@ -237,7 +239,7 @@ export default function RouteMap({
 
       markersRef.current.push(marker);
     });
-  }, [ready, stops, nearby, selectedId, onSelect]);
+  }, [ready, stops, nearby, selectedId, onSelect, line]);
 
   // Fit the map only when a different route day is selected.
   useEffect(() => {
