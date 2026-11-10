@@ -62,7 +62,7 @@ export function pointsPerDay(req: SelectionRequest): number {
     const sightseeingHours = req.hoursPerDay - 1; // 1 година на обід
     const slot = SLOT_MIN[req.visitMode ?? 'MAIN'];
     const raw = ((sightseeingHours * 60) / slot) * ACTIVITY_FACTOR[req.activityLevel];
-    return Math.min(14, Math.max(2, Math.round(raw)));
+    return Math.min(9, Math.max(2, Math.round(raw)));
 }
 
 export function candidateLimit(req: SelectionRequest): number {
@@ -80,15 +80,36 @@ function allowedCategories(interests: string[]): Set<PoiCategory> {
 }
 
 export function isMeaningful(p: PoiRow): boolean {
+    if (/caff[eè]|cafe|giubbe rosse|ristorante|trattoria|osteria|pizzeria|gelateria/i.test(p.name)) {
+        return false;
+    }
     const hasWikidata = Boolean(p.metadata?.wikidata);
+
     if (p.category === 'HISTORIC') {
         if (p.subcategory === 'memorial') return false;
-        if (p.subcategory === 'building' || p.subcategory === 'church') return hasWikidata;
+        if (p.subcategory === 'building' || p.subcategory === 'church') {
+            return hasWikidata && Boolean(p.metadata?.wikipedia);
+        }
+
+        if (/^(palazzo|torre|villa) /i.test(p.name) &&
+            !p.metadata?.wikipedia &&
+            !isLandmark(p.name)) {
+            return false;
+        }
         return true;
     }
-    if (p.category === 'PARK') return hasWikidata;
+
+    if (p.category === 'PARK') {
+        return hasWikidata && Boolean(p.metadata?.wikipedia);
+    }
+
+    if (p.category === 'CHURCH') {
+        return Boolean(p.metadata?.wikipedia) || isLandmark(p.name);
+    }
+
     return true;
 }
+
 
 // П'яцца делла Синьорія: умовний центр міста
 export const CITY_CENTER = { lat: 43.7696, lon: 11.2558 };
@@ -120,19 +141,34 @@ export function popularityScore(
     return Number(score.toFixed(2));
 }
 
-// Повний рейтинг: фільтр, оцінка, дедуплікація (150 м), час перебування за режимом
 export function rankCandidates(pois: PoiRow[], req: SelectionRequest): Candidate[] {
     const allowed = allowedCategories(req.interests);
     const mode = req.visitMode ?? 'MAIN';
     const queues = req.queues ?? false;
+
+    const MAX_FROM_CENTER = {
+        LOW: 2200,
+        MEDIUM: 3500,
+        HIGH: 5000,
+    }[req.activityLevel];
+
     const scored = pois
-        .filter((p) => allowed.has(p.category) && isMeaningful(p))
-        .map((p) => ({ ...p, score: popularityScore(p, req.interests, req.activityLevel) }))
+        .filter(
+            (p) =>
+                (allowed.has(p.category) && isMeaningful(p)) &&
+                (haversineM(p, CITY_CENTER) <= MAX_FROM_CENTER ||
+                    isLandmark(p.name))
+        )
+        .map((p) => ({
+            ...p,
+            score: popularityScore(p, req.interests, req.activityLevel),
+        }))
         .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
 
     return dedupeByName(scored, 150).map((p) => {
         const d = classifyDwell(p);
         const v = visitMinutes(d, mode, queues);
+
         return {
             ...p,
             visitMinutes: v.minutes,
@@ -143,6 +179,7 @@ export function rankCandidates(pois: PoiRow[], req: SelectionRequest): Candidate
         };
     });
 }
+
 
 export function selectCandidates(pois: PoiRow[], req: SelectionRequest): Candidate[] {
     return rankCandidates(pois, req).slice(0, candidateLimit(req));

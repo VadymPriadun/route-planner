@@ -1,5 +1,6 @@
+
 import type { PoiCategory } from '@prisma/client';
-import { haversineM, LatLon } from './geo';
+import { distM, haversineM, LatLon } from './geo';
 import type { Candidate, PoiRow } from './selection';
 
 export const WALK_FACTOR = 1.3;
@@ -43,6 +44,7 @@ export interface BuildDayInput {
     sights: Candidate[];
     hoursPerDay: number;
     wantCoffee: boolean;
+    interests: string[];
     foodPool: PoiRow[];
     usedFood: Set<string>;
 }
@@ -56,28 +58,63 @@ export function fmt(min: number): string {
 const walkM = (a: LatLon, b: LatLon): number => haversineM(a, b) * WALK_FACTOR;
 const walkMin = (a: LatLon, b: LatLon): number => Math.ceil(walkM(a, b) / WALK_M_PER_MIN);
 
-function nearestFood(from: LatLon, pool: PoiRow[], used: Set<string>, category: PoiCategory): PoiRow | null {
+function nearestFood(
+    from: LatLon,
+    pool: PoiRow[],
+    used: Set<string>,
+    category: PoiCategory,
+): PoiRow | null {
     let best: PoiRow | null = null;
     let bestD = Infinity;
+
     for (const p of pool) {
         if (p.category !== category || used.has(p.id)) continue;
-        const d = haversineM(from, p);
+
+        const d = distM(from, p);
+
         if (d < bestD) {
             bestD = d;
             best = p;
         }
     }
+
     return best;
 }
 
 export function buildDay(input: BuildDayInput): DayPlan {
     const { sights, hoursPerDay, foodPool, usedFood } = input;
     const endMin = DAY_START_MIN + hoursPerDay * 60;
+
     const rules: BreakRule[] = [
         { kind: 'LUNCH', fromMin: 12 * 60 + 30, minutes: 60, category: 'RESTAURANT' },
     ];
+
     if (input.wantCoffee) {
-        rules.push({ kind: 'COFFEE', fromMin: 15 * 60, minutes: 30, category: 'CAFE' });
+        rules.push({
+            kind: 'COFFEE',
+            fromMin: 10 * 60 + 45,
+            minutes: 20,
+            category: 'CAFE',
+        });
+
+        if (hoursPerDay >= 8) {
+            rules.push({
+                kind: 'COFFEE',
+                fromMin: 15 * 60 + 30,
+                minutes: 20,
+                category: 'CAFE',
+            });
+        }
+    }
+
+// Dinner for food-focused itineraries.
+    if (input.hoursPerDay >= 9 && input.interests.includes('food')) {
+        rules.push({
+            kind: 'LUNCH',
+            fromMin: 18 * 60,
+            minutes: 60,
+            category: 'RESTAURANT',
+        });
     }
 
     const done = new Set<string>();
@@ -87,10 +124,18 @@ export function buildDay(input: BuildDayInput): DayPlan {
     let prev: LatLon | null = null;
     let dist = 0;
 
-    const place = (poi: PoiRow, kind: StopKind, minutes: number, extra: Partial<Stop> = {}): boolean => {
+    const place = (
+        poi: PoiRow,
+        kind: StopKind,
+        minutes: number,
+        extra: Partial<Stop> = {},
+    ): boolean => {
         const arrive = t + (prev ? walkMin(prev, poi) : 0);
+
         if (arrive + minutes > endMin) return false;
+
         if (prev) dist += walkM(prev, poi);
+
         stops.push({
             poiId: poi.id,
             name: poi.name,
@@ -102,34 +147,45 @@ export function buildDay(input: BuildDayInput): DayPlan {
             visitMinutes: minutes,
             ...extra,
         });
+
         t = arrive + minutes;
         prev = poi;
+
         return true;
     };
 
     const takeBreaks = (): void => {
         for (const r of rules) {
-            if (done.has(r.kind) || t < r.fromMin) continue;
+            const ruleKey = r.kind + r.fromMin;
+
+            if (done.has(ruleKey) || t < r.fromMin) continue;
+
             const from: LatLon | undefined = prev ?? sights[0];
+
             if (!from) return;
+
             const spot = nearestFood(from, foodPool, usedFood, r.category);
+
             if (spot && place(spot, r.kind, r.minutes)) {
                 usedFood.add(spot.id);
-                done.add(r.kind);
+                done.add(ruleKey);
             }
         }
     };
 
     for (const s of sights) {
         takeBreaks();
+
         const ok = place(s, 'SIGHT', s.visitMinutes ?? s.defaultVisitMinutes, {
             outsideMin: s.outsideMin,
             insideMin: s.insideMin,
             enterable: s.enterable,
             inside: s.inside,
         });
+
         if (!ok) dropped.push(s.name);
     }
+
     takeBreaks();
 
     return {

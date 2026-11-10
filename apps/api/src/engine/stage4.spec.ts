@@ -71,7 +71,13 @@ describe('schedule', () => {
             sight('d', 43.7732, 11.2558, 90),
         ];
         const day = buildDay({
-            dayNumber: 1, sights, hoursPerDay: 8, wantCoffee: false, foodPool, usedFood: new Set(),
+            dayNumber: 1,
+            sights,
+            hoursPerDay: 8,
+            wantCoffee: false,
+            interests: [],
+            foodPool,
+            usedFood: new Set(),
         });
         expect(day.stops.some((s) => s.kind === 'LUNCH')).toBe(true);
         const arrivals = day.stops.map((s) => s.arrival);
@@ -82,7 +88,13 @@ describe('schedule', () => {
     it('drops a sight that does not fit into a short day', () => {
         const sights = [sight('a', 43.773, 11.256, 90), sight('b', 43.7735, 11.2565, 90)];
         const day = buildDay({
-            dayNumber: 1, sights, hoursPerDay: 2, wantCoffee: false, foodPool, usedFood: new Set(),
+            dayNumber: 1,
+            sights,
+            hoursPerDay: 2,
+            wantCoffee: false,
+            interests: [],
+            foodPool,
+            usedFood: new Set(),
         });
         expect(day.stops).toHaveLength(1);
         expect(day.dropped).toEqual(['b']);

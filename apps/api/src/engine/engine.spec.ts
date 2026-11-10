@@ -86,8 +86,26 @@ describe('selection', () => {
         expect(isMeaningful(row({ category: 'HISTORIC', subcategory: 'memorial' }))).toBe(false);
         expect(isMeaningful(row({ category: 'HISTORIC', subcategory: 'building' }))).toBe(false);
         expect(
-            isMeaningful(row({ category: 'HISTORIC', subcategory: 'building', metadata: { wikidata: 'Q1' } })),
-        ).toBe(true);
+    isMeaningful(
+        row({
+            category: 'HISTORIC',
+            subcategory: 'building',
+            metadata: {
+                wikidata: 'Q1',
+                wikipedia: 'en:Historic_Building',
+            },
+        }),
+    ),
+).toBe(true);
+	expect(
+    isMeaningful(
+        row({
+            category: 'HISTORIC',
+            subcategory: 'building',
+            metadata: { wikidata: 'Q1' },
+        }),
+    ),
+).toBe(false);
         expect(isMeaningful(row({ category: 'HISTORIC', subcategory: 'city_gate' }))).toBe(true);
     });
     it('limits the number of points by days and activity', () => {

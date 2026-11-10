@@ -53,6 +53,7 @@ export function classifyDwell(p: DwellInput): Dwell {
     if (p.category !== 'PARK' && has(n, ['piazza ', 'piazzale', 'giardino', 'parco '])) {
         return { outsideMin: 20, insideMin: 20, enterable: false, main: false, queueMin: 0 };
     }
+    
     if (p.subcategory === 'city_gate' || n.startsWith('porta ') || has(n, ['arco '])) {
         return { outsideMin: 5, insideMin: 5, enterable: false, main: false, queueMin: 0 };
     }

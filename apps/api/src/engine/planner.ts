@@ -3,7 +3,7 @@ import { groupDbscan, groupKMeansBalanced } from './grouping';
 import { nearestNeighbor, pathLengthM, twoOpt } from './tsp';
 import { buildDay, DayPlan } from './schedule';
 import {
-    CITY_CENTER, candidateLimit, rankCandidates, Candidate, PoiRow, SelectionRequest,
+    CITY_CENTER, candidateLimit, rankCandidates, Candidate, PoiRow, SelectionRequest,pointsPerDay
 } from './selection';
 
 export type GroupingAlgo = 'kmeans' | 'dbscan';
@@ -50,9 +50,22 @@ export function planRoute(pois: PoiRow[], req: PlanRequest): RoutePlan {
     if (ranked.length === 0) {
         throw new Error('No suitable places found for the requested interests');
     }
-    const limit = Math.min(ranked.length, candidateLimit(req));
-    const cands = ranked.slice(0, limit);
-    const reserve = ranked.slice(limit); // запас для добору точок у неповні дні
+
+    const MAX_SPAN_M = { LOW: 1500, MEDIUM: 3000, HIGH: 6000 }[req.activityLevel];
+
+    const anchor = ranked[0]; 
+    const nearAnchor = ranked.filter(
+        (p) => haversineM(p, anchor) <= MAX_SPAN_M,
+    );
+
+    const pool = nearAnchor.length >= req.days * 3 ? nearAnchor : ranked;
+
+    const cands = pool.slice(
+        0,
+        Math.min(pool.length, candidateLimit(req)),
+    );
+
+    const reserve = pool.slice(cands.length);
 
     const minSize = Math.max(2, Math.floor(cands.length / req.days / 2));
     const groups =
@@ -79,17 +92,28 @@ export function planRoute(pois: PoiRow[], req: PlanRequest): RoutePlan {
     const usedFood = new Set<string>();
     const limitMin = req.hoursPerDay * 60;
     const wantCoffee = req.interests.includes('coffee');
+    const MAX_STOPS = Math.min(12, pointsPerDay(req) + 3);
+
 
     const days: DayPlan[] = ordered.map((group, idx) => {
+        
         const build = (sights: Candidate[], used: Set<string>): DayPlan =>
-            buildDay({ dayNumber: idx + 1, sights, hoursPerDay: req.hoursPerDay, wantCoffee, foodPool, usedFood: used });
+            buildDay({
+                dayNumber: idx + 1,
+                sights,
+                hoursPerDay: req.hoursPerDay,
+                wantCoffee,
+                interests: req.interests,
+                foodPool,
+                usedFood: used,
+            });
 
         let sights = orderGroup(group);
         let plan = build(sights, new Set(usedFood));
         let guard = 25;
 
         // Добір найближчих точок із запасу, поки день не заповнений на 80%+
-        while (plan.durationMin < FILL_TARGET * limitMin && reserve.length > 0 && guard-- > 0) {
+        while (plan.durationMin < FILL_TARGET * limitMin && plan.stops.length < MAX_STOPS && reserve.length > 0 && guard-- > 0) {
             const c = centroid(sights);
             let bi = -1;
             let bd = FILL_RADIUS_M;

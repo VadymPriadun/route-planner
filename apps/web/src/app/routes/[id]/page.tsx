@@ -142,7 +142,9 @@ export default function RoutePage() {
                 <div className="time">{r?.arrival ?? p.arrivalTime}</div>
                 <div>
                   <div><strong>{i + 1}. {p.poi.name}</strong></div>
-                  <div className="muted">{KIND_LABELS[p.note ?? 'SIGHT']} · {r?.minutes ?? p.visitMinutes} хв{p.poi.address ? ` · ${p.poi.address}` : ''}</div>
+                  <div className="muted">{p.note === 'LUNCH' && (r?.arrival ?? p.arrivalTime ?? '') >= '17:00'
+                      ? 'Вечеря'
+                      : KIND_LABELS[p.note ?? 'SIGHT']} · {r?.minutes ?? p.visitMinutes} хв{p.poi.address ? ` · ${p.poi.address}` : ''}</div>
                   {p.note === 'SIGHT' && p.enterable && (
                       <div className="seg" onClick={(e) => e.stopPropagation()}>
                         <button className={!r?.inside ? 'on' : ''} onClick={() => setOverrides({ ...overrides, [p.id]: false })}>Ззовні</button>
